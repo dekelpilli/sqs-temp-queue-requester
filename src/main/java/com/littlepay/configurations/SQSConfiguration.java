@@ -13,11 +13,18 @@ import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.amazonaws.services.sqs.AmazonSQSRequester;
 import com.amazonaws.services.sqs.AmazonSQSRequesterClientBuilder;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 
 @Configuration
@@ -35,11 +42,36 @@ public class SQSConfiguration {
     }
 
     @Bean
+    public Map<String, String> temporaryQueueAttributes(@Autowired(required = false) RetryPolicy retryPolicy,
+                                                        ObjectMapper objectMapper,
+                                                        @Value("${requester.dlq-arn}") String dlqArn)
+            throws JsonProcessingException {
+
+        Map<String, String> temporaryQueueAttributes = new HashMap<>();
+        temporaryQueueAttributes.put("RedrivePolicy", getRedrivePolicyString(dlqArn, objectMapper, retryPolicy));
+        temporaryQueueAttributes.put("MessageRetentionPeriod", Long.toString(TimeUnit.HOURS.toSeconds(1L)));
+
+        return temporaryQueueAttributes;
+    }
+
+    private static String getRedrivePolicyString(String dlqArn, ObjectMapper objectMapper, RetryPolicy retryPolicy)
+            throws JsonProcessingException {
+        Map<String, String> redrivePolicyAttribute = new HashMap<>();
+        if (retryPolicy != null) {
+            redrivePolicyAttribute.put("maxReceiveCount", Integer.toString(retryPolicy.getMaxErrorRetry()));
+        }
+        redrivePolicyAttribute.put("deadLetterTargetArn", dlqArn);
+        return objectMapper.writeValueAsString(redrivePolicyAttribute);
+    }
+
+    @Bean
     public AmazonSQSRequester amazonSQSRequester(@Value("${requester.queue-prefix}") String prefix,
-                                                 AmazonSQS amazonSQS) {
+                                                 AmazonSQS amazonSQS,
+                                                 Map<String, String> temporaryQueueAttributes) {
         return AmazonSQSRequesterClientBuilder.standard()
                 .withInternalQueuePrefix(prefix)
                 .withAmazonSQS(amazonSQS)
+                .withQueueAttributes(temporaryQueueAttributes)
                 .build();
     }
 
