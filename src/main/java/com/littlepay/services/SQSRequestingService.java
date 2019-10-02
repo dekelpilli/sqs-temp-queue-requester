@@ -43,14 +43,9 @@ public class SQSRequestingService implements DisposableBean {
 
     public void sendRequests() {
         log.warn("Starting to discover numbers...");
-        short count = 0;
-        do {
-            for (short i = 0; i < 10; i++) {
-                sendStringMessage();
-                count++;
-            }
-            log.warn("Count: {}", count);
-        } while (count < 10);
+        for (short i = 0; i < 10; i++) {
+            sendStringMessage();
+        }
         log.warn("Done discovering numbers");
     }
 
