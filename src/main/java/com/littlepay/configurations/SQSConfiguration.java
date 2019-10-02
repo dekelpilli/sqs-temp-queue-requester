@@ -49,7 +49,7 @@ public class SQSConfiguration {
 
         Map<String, String> temporaryQueueAttributes = new HashMap<>();
         temporaryQueueAttributes.put("RedrivePolicy", getRedrivePolicyString(dlqArn, objectMapper, retryPolicy));
-        temporaryQueueAttributes.put("MessageRetentionPeriod", Long.toString(TimeUnit.HOURS.toSeconds(1L)));
+        temporaryQueueAttributes.put("MessageRetentionPeriod", Long.toString(TimeUnit.MINUTES.toSeconds(5L)));
 
         return temporaryQueueAttributes;
     }
@@ -59,8 +59,8 @@ public class SQSConfiguration {
         Map<String, String> redrivePolicyAttribute = new HashMap<>();
         if (retryPolicy != null) {
             redrivePolicyAttribute.put("maxReceiveCount", Integer.toString(retryPolicy.getMaxErrorRetry()));
+            redrivePolicyAttribute.put("deadLetterTargetArn", dlqArn);
         }
-        redrivePolicyAttribute.put("deadLetterTargetArn", dlqArn);
         return objectMapper.writeValueAsString(redrivePolicyAttribute);
     }
 
